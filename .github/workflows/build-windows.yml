@@ -42,7 +42,6 @@ jobs:
           Remove-Item -Recurse -Force "build" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "dist" -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force "release" -ErrorAction SilentlyContinue
-          Get-ChildItem -Path "." -Filter "*.spec" -File | Remove-Item -Force
 
       - name: Verify package imports
         shell: pwsh
@@ -54,16 +53,20 @@ jobs:
       - name: Build executable
         shell: pwsh
         run: |
-          $srcPath = Join-Path $PWD "src"
-          python -m PyInstaller `
-            --noconfirm `
-            --clean `
-            --windowed `
-            --onefile `
-            --name SubtitleMasker `
-            --paths "$srcPath" `
-            --collect-submodules subtitle_masker `
-            main.py
+          python -m PyInstaller --noconfirm --clean SubtitleMasker.spec
+
+      - name: Run executable self-test
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath "dist\SubtitleMasker.exe" -ArgumentList "--self-test" -PassThru
+          if (-not $proc.WaitForExit(15000)) {
+            $proc.Kill()
+            throw "SubtitleMasker.exe self-test timed out"
+          }
+          if ($proc.ExitCode -ne 0) {
+            throw "SubtitleMasker.exe self-test failed with exit code $($proc.ExitCode)"
+          }
+          Write-Host "SubtitleMasker.exe self-test passed"
 
       - name: Prepare portable folder
         shell: pwsh

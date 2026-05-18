@@ -32,16 +32,21 @@ Write-Host "Cleaning old build artifacts..."
 Remove-Item -Recurse -Force "build" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force "dist" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force "release" -ErrorAction SilentlyContinue
-Get-ChildItem -Path "." -Filter "*.spec" -File | Remove-Item -Force
 
-& $Python -m PyInstaller `
-    --noconfirm `
-    --clean `
-    --windowed `
-    --onefile `
-    --name "SubtitleMasker" `
-    --paths "$srcPath" `
-    --collect-submodules "subtitle_masker" `
-    "main.py"
+& $Python -m PyInstaller --noconfirm --clean "SubtitleMasker.spec"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "PyInstaller build failed."
+    exit 1
+}
+
+Write-Host "Running executable self-test..."
+$proc = Start-Process -FilePath "dist\SubtitleMasker.exe" -ArgumentList "--self-test" -PassThru
+if (-not $proc.WaitForExit(15000)) {
+    $proc.Kill()
+    throw "SubtitleMasker.exe self-test timed out"
+}
+if ($proc.ExitCode -ne 0) {
+    throw "SubtitleMasker.exe self-test failed with exit code $($proc.ExitCode)"
+}
 
 Write-Host "Build finished: dist\SubtitleMasker.exe"
