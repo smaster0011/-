@@ -18,14 +18,30 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+$srcPath = Join-Path $ProjectRoot "src"
+$env:PYTHONPATH = $srcPath
+
+Write-Host "Verifying subtitle_masker imports..."
+& $Python -c "import sys; print(sys.path); import subtitle_masker; import subtitle_masker.main; print('subtitle_masker import ok:', subtitle_masker.__file__)"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Import precheck failed. Build stopped."
+    exit 1
+}
+
+Write-Host "Cleaning old build artifacts..."
+Remove-Item -Recurse -Force "build" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "dist" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "release" -ErrorAction SilentlyContinue
+Get-ChildItem -Path "." -Filter "*.spec" -File | Remove-Item -Force
+
 & $Python -m PyInstaller `
     --noconfirm `
     --clean `
     --windowed `
     --onefile `
     --name "SubtitleMasker" `
-    --paths "src" `
-    --hidden-import "subtitle_masker" `
+    --paths "$srcPath" `
+    --collect-submodules "subtitle_masker" `
     "main.py"
 
 Write-Host "Build finished: dist\SubtitleMasker.exe"

@@ -36,16 +36,33 @@ jobs:
       - name: Run syntax checks
         run: python -m compileall -q main.py src
 
-      - name: Build executable
+      - name: Clean old build artifacts
+        shell: pwsh
         run: |
+          Remove-Item -Recurse -Force "build" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "dist" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "release" -ErrorAction SilentlyContinue
+          Get-ChildItem -Path "." -Filter "*.spec" -File | Remove-Item -Force
+
+      - name: Verify package imports
+        shell: pwsh
+        run: |
+          $srcPath = Join-Path $PWD "src"
+          $env:PYTHONPATH = $srcPath
+          python -c "import sys; print(sys.path); import subtitle_masker; import subtitle_masker.main; print('subtitle_masker import ok:', subtitle_masker.__file__)"
+
+      - name: Build executable
+        shell: pwsh
+        run: |
+          $srcPath = Join-Path $PWD "src"
           python -m PyInstaller `
             --noconfirm `
             --clean `
             --windowed `
             --onefile `
             --name SubtitleMasker `
-            --paths src `
-            --hidden-import subtitle_masker `
+            --paths "$srcPath" `
+            --collect-submodules subtitle_masker `
             main.py
 
       - name: Prepare portable folder
