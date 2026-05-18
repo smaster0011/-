@@ -1,0 +1,86 @@
+name: Build Windows Portable
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-windows-portable:
+    name: Build Windows portable package
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Read application version
+        shell: pwsh
+        run: |
+          $version = python scripts/get_version.py
+          $packageName = "SubtitleMasker_v${version}_Windows_Portable"
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PACKAGE_NAME=$packageName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "APP_VERSION=$version"
+          Write-Host "PACKAGE_NAME=$packageName"
+
+      - name: Run syntax checks
+        run: python -m compileall -q main.py src
+
+      - name: Build executable
+        run: |
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --windowed `
+            --onefile `
+            --name SubtitleMasker `
+            main.py
+
+      - name: Prepare portable folder
+        shell: pwsh
+        run: |
+          $packageDir = Join-Path "release" $env:PACKAGE_NAME
+          New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+
+          Copy-Item "dist\SubtitleMasker.exe" -Destination $packageDir
+          Copy-Item "README.txt" -Destination $packageDir
+          Copy-Item "README.md" -Destination $packageDir
+          Copy-Item "CHANGELOG.md" -Destination $packageDir
+          Copy-Item "LICENSE.txt" -Destination $packageDir
+
+          New-Item -ItemType Directory -Path (Join-Path $packageDir "docs") -Force | Out-Null
+          Copy-Item "docs\PRIVACY.md" -Destination (Join-Path $packageDir "docs")
+          Copy-Item "docs\UPDATE_POLICY.md" -Destination (Join-Path $packageDir "docs")
+
+      - name: Create zip package
+        shell: pwsh
+        run: |
+          $packageDir = Join-Path "release" $env:PACKAGE_NAME
+          $zipPath = Join-Path "release" "$($env:PACKAGE_NAME).zip"
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+          Compress-Archive -Path $packageDir -DestinationPath $zipPath
+          Write-Host "Created $zipPath"
+
+      - name: Upload portable folder artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: release/${{ env.PACKAGE_NAME }}
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}.zip
+          path: release/${{ env.PACKAGE_NAME }}.zip
