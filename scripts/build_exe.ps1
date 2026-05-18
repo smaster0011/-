@@ -24,6 +24,8 @@ if ($LASTEXITCODE -ne 0) {
     --windowed `
     --onefile `
     --name "SubtitleMasker" `
+    --paths "src" `
+    --hidden-import "subtitle_masker" `
     "main.py"
 
 Write-Host "Build finished: dist\SubtitleMasker.exe"

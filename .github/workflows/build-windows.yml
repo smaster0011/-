@@ -44,6 +44,8 @@ jobs:
             --windowed `
             --onefile `
             --name SubtitleMasker `
+            --paths src `
+            --hidden-import subtitle_masker `
             main.py
 
       - name: Prepare portable folder
